@@ -1,3 +1,22 @@
+# UPDATE:
+
+got the example compiling (thanks Intel, super easy on windows, not so much on my mac ;-)
+
+Example.exe result:
+![VizOccluderExample](https://user-images.githubusercontent.com/440241/72211685-6dc25080-3484-11ea-97a3-9b6d3124307c.png)
+
+The Goal:
+1. Load in a big building, via glTF, and get this output:
+![idbuffer_720](https://user-images.githubusercontent.com/440241/72211693-816db700-3484-11ea-9445-b5d2a0934844.jpg)
+
+2. Count the pixels of each BufferID (a histogram), and provide an array
+
+3. Send this array to three.js / Oculus Quest. Which will load/render just these glTF bits, like this...
+![outsideview2_720](https://user-images.githubusercontent.com/440241/72211688-73b83180-3484-11ea-914f-d785aab25948.jpg)
+
+
+
+
 # MaskedOcclusionCulling
 
 This code accompanies the research paper ["Masked Software Occlusion Culling"](https://software.intel.com/en-us/articles/masked-software-occlusion-culling),
