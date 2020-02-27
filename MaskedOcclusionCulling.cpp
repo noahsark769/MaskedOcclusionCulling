@@ -34,6 +34,11 @@
 
 static MaskedOcclusionCulling::Implementation DetectCPUFeatures(MaskedOcclusionCulling::pfnAlignedAlloc alignedAlloc, MaskedOcclusionCulling::pfnAlignedFree alignedFree)
 {
+
+    #if defined(__ENVIRONMENT_IOS__)
+    return MaskedOcclusionCulling::APPLE_SIMD;
+    #endif
+
 	struct CpuInfo { int regs[4]; };
 
 	// Get regular CPUID values
@@ -248,6 +253,116 @@ FORCE_INLINE void GatherVertices(__m128 *vtxX, __m128 *vtxY, __m128 *vtxW, const
 // SSE4.1 version
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+#if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) || defined(__ENVIRONMENT_IOS__)
+
+#include <simd/simd.h>
+
+namespace MaskedOcclusionCullingAppleSIMD
+{
+    FORCE_INLINE __m128i _mmw_mullo_epi32(const __m128i &a, const __m128i &b)
+    {
+        // Do products for even / odd lanes & merge the result
+        __m128i even = _mm_and_si128(_mm_mul_epu32(a, b), _mm_setr_epi32(~0, 0, ~0, 0));
+        __m128i odd = _mm_slli_epi64(_mm_mul_epu32(_mm_srli_epi64(a, 32), _mm_srli_epi64(b, 32)), 32);
+        return _mm_or_si128(even, odd);
+    }
+    FORCE_INLINE __m128i _mmw_min_epi32(const __m128i &a, const __m128i &b)
+    {
+        __m128i cond = _mm_cmpgt_epi32(a, b);
+        return _mm_or_si128(_mm_andnot_si128(cond, a), _mm_and_si128(cond, b));
+    }
+    FORCE_INLINE __m128i _mmw_max_epi32(const __m128i &a, const __m128i &b)
+    {
+        __m128i cond = _mm_cmpgt_epi32(b, a);
+        return _mm_or_si128(_mm_andnot_si128(cond, a), _mm_and_si128(cond, b));
+    }
+    FORCE_INLINE __m128i _mmw_abs_epi32(const __m128i &a)
+    {
+        __m128i mask = _mm_cmplt_epi32(a, _mm_setzero_si128());
+        return _mm_add_epi32(_mm_xor_si128(a, mask), _mm_srli_epi32(mask, 31));
+    }
+    FORCE_INLINE int _mmw_testz_epi32(const __m128i &a, const __m128i &b)
+    {
+        return _mm_movemask_epi8(_mm_cmpeq_epi8(_mm_and_si128(a, b), _mm_setzero_si128())) == 0xFFFF;
+    }
+    FORCE_INLINE __m128 _mmw_blendv_ps(const __m128 &a, const __m128 &b, const __m128 &c)
+    {
+        __m128 cond = _mm_castsi128_ps(_mm_srai_epi32(_mm_castps_si128(c), 31));
+        return _mm_or_ps(_mm_andnot_ps(cond, a), _mm_and_ps(cond, b));
+    }
+    FORCE_INLINE __m128 _mmx_dp4_ps(const __m128 &a, const __m128 &b)
+    {
+        // Product and two shuffle/adds pairs (similar to hadd_ps)
+        __m128 prod = _mm_mul_ps(a, b);
+        __m128 dp = _mm_add_ps(prod, _mm_shuffle_ps(prod, prod, _MM_SHUFFLE(2, 3, 0, 1)));
+        dp = _mm_add_ps(dp, _mm_shuffle_ps(dp, dp, _MM_SHUFFLE(0, 1, 2, 3)));
+        return dp;
+    }
+    FORCE_INLINE __m128 _mmw_floor_ps(const __m128 &a)
+    {
+        int originalMode = _MM_GET_ROUNDING_MODE();
+        _MM_SET_ROUNDING_MODE(_MM_ROUND_DOWN);
+        __m128 rounded = _mm_cvtepi32_ps(_mm_cvtps_epi32(a));
+        _MM_SET_ROUNDING_MODE(originalMode);
+        return rounded;
+    }
+    FORCE_INLINE __m128 _mmw_ceil_ps(const __m128 &a)
+    {
+        int originalMode = _MM_GET_ROUNDING_MODE();
+        _MM_SET_ROUNDING_MODE(_MM_ROUND_UP);
+        __m128 rounded = _mm_cvtepi32_ps(_mm_cvtps_epi32(a));
+        _MM_SET_ROUNDING_MODE(originalMode);
+        return rounded;
+    }
+    FORCE_INLINE __m128i _mmw_transpose_epi8(const __m128i &a)
+    {
+        // Perform transpose through two 16->8 bit pack and byte shifts
+        __m128i res = a;
+        const __m128i mask = _mm_setr_epi8(~0, 0, ~0, 0, ~0, 0, ~0, 0, ~0, 0, ~0, 0, ~0, 0, ~0, 0);
+        res = _mm_packus_epi16(_mm_and_si128(res, mask), _mm_srli_epi16(res, 8));
+        res = _mm_packus_epi16(_mm_and_si128(res, mask), _mm_srli_epi16(res, 8));
+        return res;
+    }
+    FORCE_INLINE __m128i _mmw_sllv_ones(const __m128i &ishift)
+    {
+        __m128i shift = _mmw_min_epi32(ishift, _mm_set1_epi32(32));
+
+        // Uses scalar approach to perform _mm_sllv_epi32(~0, shift)
+        static const unsigned int maskLUT[33] = {
+            ~0U << 0, ~0U << 1, ~0U << 2 ,  ~0U << 3, ~0U << 4, ~0U << 5, ~0U << 6 , ~0U << 7, ~0U << 8, ~0U << 9, ~0U << 10 , ~0U << 11, ~0U << 12, ~0U << 13, ~0U << 14 , ~0U << 15,
+            ~0U << 16, ~0U << 17, ~0U << 18 , ~0U << 19, ~0U << 20, ~0U << 21, ~0U << 22 , ~0U << 23, ~0U << 24, ~0U << 25, ~0U << 26 , ~0U << 27, ~0U << 28, ~0U << 29, ~0U << 30 , ~0U << 31,
+            0U };
+
+        __m128i retMask;
+        simd_i32(retMask)[0] = (int)maskLUT[simd_i32(shift)[0]];
+        simd_i32(retMask)[1] = (int)maskLUT[simd_i32(shift)[1]];
+        simd_i32(retMask)[2] = (int)maskLUT[simd_i32(shift)[2]];
+        simd_i32(retMask)[3] = (int)maskLUT[simd_i32(shift)[3]];
+        return retMask;
+    }
+
+    static MaskedOcclusionCulling::Implementation gInstructionSet = MaskedOcclusionCulling::APPLE_SIMD;
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Include common algorithm implementation (general, SIMD independent code)
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    #include "MaskedOcclusionCullingCommon.inl"
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // Utility function to create a new object using the allocator callbacks
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    MaskedOcclusionCulling *CreateMaskedOcclusionCulling(pfnAlignedAlloc alignedAlloc, pfnAlignedFree alignedFree)
+    {
+        MaskedOcclusionCullingPrivate *object = (MaskedOcclusionCullingPrivate *)alignedAlloc(64, sizeof(MaskedOcclusionCullingPrivate));
+        new (object) MaskedOcclusionCullingPrivate(alignedAlloc, alignedFree);
+        return object;
+    }
+};
+
+#else
+
 namespace MaskedOcclusionCullingSSE41
 {
 	FORCE_INLINE __m128i _mmw_mullo_epi32(const __m128i &a, const __m128i &b) { return _mm_mullo_epi32(a, b); }
@@ -408,9 +523,13 @@ namespace MaskedOcclusionCullingSSE2
 	}
 };
 
+#endif
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Object construction and allocation
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#ifndef __ENVIRONMENT_IOS__
 namespace MaskedOcclusionCullingAVX512
 {
 	extern MaskedOcclusionCulling *CreateMaskedOcclusionCulling(pfnAlignedAlloc alignedAlloc, pfnAlignedFree alignedFree);
@@ -420,6 +539,8 @@ namespace MaskedOcclusionCullingAVX2
 {
 	extern MaskedOcclusionCulling *CreateMaskedOcclusionCulling(pfnAlignedAlloc alignedAlloc, pfnAlignedFree alignedFree);
 }
+
+#endif
 
 MaskedOcclusionCulling *MaskedOcclusionCulling::Create(Implementation RequestedSIMD)
 {
@@ -432,10 +553,12 @@ MaskedOcclusionCulling *MaskedOcclusionCulling::Create(Implementation RequestedS
 
 	MaskedOcclusionCulling::Implementation impl = DetectCPUFeatures(alignedAlloc, alignedFree);
 
-	if (RequestedSIMD < impl)
+    if (RequestedSIMD < impl) {
 		impl = RequestedSIMD;
+    }
 
 	// Return best supported version
+    #ifndef __ENVIRONMENT_IOS__
 	if (object == nullptr && impl >= AVX512)
 		object = MaskedOcclusionCullingAVX512::CreateMaskedOcclusionCulling(alignedAlloc, alignedFree); // Use AVX512 version
 	if (object == nullptr && impl >= AVX2)
@@ -444,6 +567,11 @@ MaskedOcclusionCulling *MaskedOcclusionCulling::Create(Implementation RequestedS
 		object = MaskedOcclusionCullingSSE41::CreateMaskedOcclusionCulling(alignedAlloc, alignedFree); // Use SSE4.1 version
 	if (object == nullptr)
 		object = MaskedOcclusionCullingSSE2::CreateMaskedOcclusionCulling(alignedAlloc, alignedFree); // Use SSE2 (slow) version
+    #else
+    if (object == nullptr) {
+        object = MaskedOcclusionCullingAppleSIMD::CreateMaskedOcclusionCulling(alignedAlloc, alignedFree);
+    }
+    #endif
 
 	return object;
 }

@@ -48,7 +48,7 @@
 
 #elif defined(__GNUG__)	|| defined(__clang__) // G++ or clang
 	#include <cpuid.h>
-#if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__)
+#if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) || defined(__ENVIRONMENT_IOS__)
 	#include <malloc/malloc.h> // memalign
 #else
 	#include <malloc.h> // memalign
@@ -69,7 +69,13 @@
 
 	FORCE_INLINE void *aligned_alloc(size_t alignment, size_t size)
 	{
+		#if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) || defined(__ENVIRONMENT_IOS__)
+		void *ptr = NULL;
+		posix_memalign(&ptr, alignment, size);
+		return ptr;
+		#else
 		return memalign(alignment, size);
+		#endif
 	}
 
 	FORCE_INLINE void aligned_free(void *ptr)

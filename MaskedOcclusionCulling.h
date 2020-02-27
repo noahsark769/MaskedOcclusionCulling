@@ -114,6 +114,8 @@
 #endif
 #endif
 
+#include <stdio.h>
+
 
 #if MOC_RECORDER_ENABLE
 
@@ -145,6 +147,7 @@ public:
 
 	enum Implementation 
 	{
+        APPLE_SIMD = -1,
 		SSE2   = 0,
 		SSE41  = 1,
 		AVX2   = 2,
