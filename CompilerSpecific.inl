@@ -47,14 +47,14 @@
 	}
 
 #elif defined(__GNUG__)	|| defined(__clang__) // G++ or clang
-	#include <cpuid.h>
+	// include <cpuid.h>
 #if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) || defined(__ENVIRONMENT_IOS__)
 	#include <malloc/malloc.h> // memalign
 #else
 	#include <malloc.h> // memalign
 #endif
 	#include <mm_malloc.h>
-	#include <immintrin.h>
+	// include <immintrin.h>
 	#include <new>
 
 	#define FORCE_INLINE inline
@@ -83,6 +83,7 @@
 		free(ptr);
 	}
 
+#ifndef __ENVIRONMENT_IOS__
 	FORCE_INLINE void __cpuidex(int* cpuinfo, int function, int subfunction)
 	{
 		__cpuid_count(function, subfunction, cpuinfo[0], cpuinfo[1], cpuinfo[2], cpuinfo[3]);
@@ -98,6 +99,7 @@
 		);
 		return ((unsigned long long)edx << 32) | eax;
 	}
+#endif
 
 #else
 	#error Unsupported compiler

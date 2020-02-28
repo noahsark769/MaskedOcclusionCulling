@@ -39,6 +39,7 @@
 		D0BF4D3724085434005CB073 /* CullingThreadpool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CullingThreadpool.h; path = ../../CullingThreadpool.h; sourceTree = "<group>"; };
 		D0BF4D3824085434005CB073 /* FrameRecorder.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = FrameRecorder.cpp; path = ../../FrameRecorder.cpp; sourceTree = "<group>"; };
 		D0BF4D3A24085434005CB073 /* MaskedOcclusionCullingCommon.inl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = MaskedOcclusionCullingCommon.inl; path = ../../MaskedOcclusionCullingCommon.inl; sourceTree = "<group>"; };
+		D0BF4D4124088B9B005CB073 /* SSE2NEON.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SSE2NEON.h; path = ../../SSE2NEON.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -71,6 +72,7 @@
 		D0BF4D19240853DD005CB073 /* Example-iOS */ = {
 			isa = PBXGroup;
 			children = (
+				D0BF4D4124088B9B005CB073 /* SSE2NEON.h */,
 				D0BF4D3424085434005CB073 /* CullingThreadpool.cpp */,
 				D0BF4D3724085434005CB073 /* CullingThreadpool.h */,
 				D0BF4D3824085434005CB073 /* FrameRecorder.cpp */,

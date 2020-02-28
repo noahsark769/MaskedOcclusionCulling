@@ -18,7 +18,7 @@
 #ifdef _WIN32
     #include <intrin.h>
 #else
-    #include <immintrin.h>
+    #include "SSE2NEON.h"
 #endif
 
 #include "MaskedOcclusionCulling.h"
@@ -77,7 +77,7 @@
 
 - (void)performTest {
     // Flush denorms to zero to avoid performance issues with small values
-    _mm_setcsr(_mm_getcsr() | 0x8040);
+//    _mm_setcsr(_mm_getcsr() | 0x8040); // ???????
 
     MaskedOcclusionCulling *moc = MaskedOcclusionCulling::Create(MaskedOcclusionCulling::Implementation::APPLE_SIMD);
 

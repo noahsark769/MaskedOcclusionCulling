@@ -24,6 +24,12 @@
 #include "FrameRecorder.h"
 #endif
 
+#if defined(__ENVIRONMENT_IOS__)
+
+#include "SSE2NEON.h"
+
+#endif
+
 #if defined(__AVX__) || defined(__AVX2__)
 	// For performance reasons, the MaskedOcclusionCullingAVX2/512.cpp files should be compiled with VEX encoding for SSE instructions (to avoid 
 	// AVX-SSE transition penalties, see https://software.intel.com/en-us/articles/avoiding-avx-sse-transition-penalties). However, this file
@@ -37,7 +43,7 @@ static MaskedOcclusionCulling::Implementation DetectCPUFeatures(MaskedOcclusionC
 
     #if defined(__ENVIRONMENT_IOS__)
     return MaskedOcclusionCulling::APPLE_SIMD;
-    #endif
+    #else
 
 	struct CpuInfo { int regs[4]; };
 
@@ -86,6 +92,7 @@ static MaskedOcclusionCulling::Implementation DetectCPUFeatures(MaskedOcclusionC
     alignedFree( cpuId );
     alignedFree( cpuIdEx );
     return retVal;
+    #endif
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
